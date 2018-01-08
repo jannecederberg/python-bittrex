@@ -19,6 +19,7 @@ else:
     import getpass
     import ast
     import json
+    import os
 
     encrypted = True
 
@@ -89,19 +90,28 @@ class Bittrex(object):
         self.last_call = None
         self.api_version = api_version
 
-    def decrypt(self):
+    def decrypt(self, export_fn='secrets.json'):
         if encrypted:
             cipher = AES.new(getpass.getpass(
                 'Input decryption password (string will not show)'))
-            try:
-                if isinstance(self.api_key, str):
-                    self.api_key = ast.literal_eval(self.api_key)
-                if isinstance(self.api_secret, str):
-                    self.api_secret = ast.literal_eval(self.api_secret)
-            except Exception:
-                pass
-            self.api_key = cipher.decrypt(self.api_key).decode()
-            self.api_secret = cipher.decrypt(self.api_secret).decode()
+            if (self.api_key == '' or self.api_secret == '') and os.path.isfile(export_fn) and os.access(export_fn, os.R_OK):
+                try:
+                    with open(export_fn, 'r') as infile:
+                        data = json.load(infile)
+                    self.api_key = cipher.decrypt(ast.literal_eval(data['key'])).decode()
+                    self.api_secret = cipher.decrypt(ast.literal_eval(data['secret'])).decode()
+                except json.decoder.JSONDecodeError:
+                    exit('JSON data read from {0} fails to decode. Check JSON data format in {0}! Exiting.'.format(export_fn))
+            else:
+                try:
+                    if isinstance(self.api_key, str):
+                        self.api_key = ast.literal_eval(self.api_key)
+                    if isinstance(self.api_secret, str):
+                        self.api_secret = ast.literal_eval(self.api_secret)
+                except Exception:
+                    pass
+                self.api_key = cipher.decrypt(self.api_key).decode()
+                self.api_secret = cipher.decrypt(self.api_secret).decode()
         else:
             raise ImportError('"pycrypto" module has to be installed')
 
