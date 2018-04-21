@@ -29,6 +29,8 @@ BUY_ORDERBOOK = 'buy'
 SELL_ORDERBOOK = 'sell'
 BOTH_ORDERBOOK = 'both'
 
+TRADE_FEE = 0.0025
+
 TICKINTERVAL_ONEMIN = 'oneMin'
 TICKINTERVAL_FIVEMIN = 'fiveMin'
 TICKINTERVAL_HOUR = 'hour'
@@ -73,7 +75,8 @@ def encrypt(api_key, api_secret, export=True, export_fn='secrets.json'):
 def using_requests(request_url, apisign):
     return requests.get(
         request_url,
-        headers={"apisign": apisign}
+        headers={"apisign": apisign},
+        timeout=10
     ).json()
 
 
@@ -252,7 +255,7 @@ class Bittrex(object):
             API_V2_0: '/pub/Markets/GetMarketSummaries'
         }, protection=PROTECTION_PUB)
 
-    def get_marketsummary(self, market):
+    def get_market_summary(self, market):
         """
         Used to get the last 24 hour summary of all active
         exchanges in specific coin
@@ -365,7 +368,7 @@ class Bittrex(object):
 
         :param market: String literal for the market (ex: BTC-LTC)
         :type market: str
-        :param quantity: The amount to purchase
+        :param quantity: The amount to sell
         :type quantity: float
         :param rate: The rate at which to place the order.
             This is not needed for market orders
@@ -422,7 +425,7 @@ class Bittrex(object):
 
         Endpoint:
         1.1 /account/getbalances
-        2.0 /key/balance/getbalances
+        2.0 /key/balance/GetBalances
 
         Example ::
             {'success': True,
@@ -442,7 +445,7 @@ class Bittrex(object):
         """
         return self._api_query(path_dict={
             API_V1_1: '/account/getbalances',
-            API_V2_0: '/key/balance/getbalances'
+            API_V2_0: '/key/balance/GetBalances'
         }, protection=PROTECTION_PRV)
 
     def get_balance(self, currency):
@@ -492,7 +495,7 @@ class Bittrex(object):
             API_V2_0: '/key/balance/getdepositaddress'
         }, options={'currency': currency, 'currencyname': currency}, protection=PROTECTION_PRV)
 
-    def withdraw(self, currency, quantity, address):
+    def withdraw(self, currency, quantity, address, paymentid=None):
         """
         Used to withdraw funds from your account
 
@@ -506,13 +509,22 @@ class Bittrex(object):
         :type quantity: float
         :param address: The address where to send the funds.
         :type address: str
+        :param paymentid: Optional argument for memos, tags, or other supplemental information for cryptos such as XRP.
+        :type paymentid: str
         :return:
         :rtype : dict
         """
+        options = {
+            'currency': currency,
+            'quantity': quantity,
+            'address': address
+        }
+        if paymentid:
+            options['paymentid'] = paymentid
         return self._api_query(path_dict={
             API_V1_1: '/account/withdraw',
             API_V2_0: '/key/balance/withdrawcurrency'
-        }, options={'currency': currency, 'quantity': quantity, 'address': address}, protection=PROTECTION_PRV)
+        }, options=options, protection=PROTECTION_PRV)
 
     def get_order_history(self, market=None):
         """
